@@ -1,0 +1,37 @@
+{
+  "team_id": "team-habene",
+  "domain": "coding_assistants",
+  "language_scope": ["en"],
+  "african_alpha_claim": false,
+  "budget_laptop_claim": true,
+  "submitter": {
+    "name": "Haben Eyasu",
+    "email": "haben@example.com",
+    "github_handle": "habene"
+  },
+  "cross_disciplinary_pairing": {
+    "discipline": "software_engineering",
+    "load_bearing": true,
+    "description": "Integration of low-level GBNF grammar constraints with quantized local LLMs for structured code patch generation."
+  },
+  "model": {
+    "name": "Qwen2.5-Coder-1.5B-Instruct",
+    "runtime": "llama.cpp",
+    "quantization": "GGUF Q5_K_M",
+    "parameters_estimate": "1.5B",
+    "packaging": "binary_bundle"
+  },
+  "_runtime": {
+    "model_path": "model/qwen2.5-coder-1.5b-instruct-q5_k_m.gguf"
+  },
+  "test_prompts": [
+    {
+      "prompt_id": "tp_001",
+      "prompt": "Fix the memory leak in the following C function by freeing allocated memory before return."
+    },
+    {
+      "prompt_id": "tp_002",
+      "prompt": "Generate a Python SQLite function with parameterized inputs to prevent SQL injection."
+    }
+  ]
+}

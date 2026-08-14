@@ -1,0 +1,11 @@
+# ADTC Rules: Do NOT commit .gguf weights
+model/*.gguf
+*.gguf
+model/
+__pycache__/
+*.pyc
+.env
+build/
+submission.json
+audit.json
+verdict.json

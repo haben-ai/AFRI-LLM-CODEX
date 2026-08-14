@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.1.0",
+  "profiler_version": "adtc-profiler 0.1.0",
+  "submission": {
+    "team_id": "AFRI-LLM-CODEX",
+    "domain": "coding_assistants",
+    "language_scope": [
+      "en"
+    ],
+    "african_alpha_claim": false,
+    "budget_laptop_claim": true,
+    "submitter": {
+      "name": "Haben Eyasu",
+      "email": "haben@example.com",
+      "github_handle": "habene"
+    },
+    "cross_disciplinary_pairing": {
+      "discipline": "software_engineering",
+      "load_bearing": true,
+      "description": "Integration of low-level GBNF grammar constraints with quantized local LLMs for structured code patch generation."
+    },
+    "model": {
+      "name": "Qwen2.5-Coder-1.5B-Instruct",
+      "runtime": "llama.cpp",
+      "quantization": "Q5_K_M",
+      "parameters_estimate": "1.5B",
+      "packaging": "binary_bundle"
+    },
+    "test_prompts": [
+      {
+        "prompt_id": "tp_001",
+        "prompt": "Fix the memory leak in the following C function by freeing allocated memory before return."
+      },
+      {
+        "prompt_id": "tp_002",
+        "prompt": "Generate a Python SQLite function with parameterized inputs to prevent SQL injection."
+      }
+    ]
+  },
+  "environment": {
+    "measured_on": "participant_laptop",
+    "cpu_model": "Intel64 Family 6 Model 78 Stepping 3, GenuineIntel",
+    "ram_gb": 7.9,
+    "gpu": "none",
+    "os": "Windows-10-10.0.26200-SP0"
+  },
+  "throughput": {
+    "tokens_per_second_generation": 8.83,
+    "first_token_latency_ms": 35608.89,
+    "prompt_tokens": 512,
+    "generated_tokens": 128
+  },
+  "memory": {
+    "peak_rss_mb": 1253.5,
+    "steady_state_rss_mb": 1169.32,
+    "peak_vms_mb": 456.39
+  },
+  "accuracy": [],
+  "cpu_thermal": {
+    "cpu_percent_p99": 100.0,
+    "core_temp_c_peak": null,
+    "throttled": false
+  },
+  "reproducibility": {
+    "git_commit_sha": "000000000000",
+    "docker_image_digest": "unknown",
+    "random_seed": 42
+  },
+  "model_info": {
+    "params_count": 1777088000,
+    "context_length": 32768,
+    "architecture": "qwen2",
+    "claimed_params_estimate": "1.5B",
+    "params_match": false
+  }
+}

@@ -1,0 +1,4 @@
+root ::= json-object
+json-object ::= "{" ws "\"file_path\":" ws string "," ws "\"action\":" ws string "," ws "\"code_patch\":" ws string ws "}"
+string ::= "\"" [^"\\]* "\""
+ws ::= [ \t\n\r]*
