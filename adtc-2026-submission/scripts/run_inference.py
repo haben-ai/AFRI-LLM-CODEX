@@ -3,6 +3,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -45,32 +46,41 @@ def guess_symbol(prompt_text: str, engine) -> str | None:
     return None
 
 
-def build_context_block(args, prompt_text: str) -> str:
+def build_engine(args) -> SemanticaCodeEngine | None:
+    """Build the DS-Code Graph once from --context-dir/--context-file, or
+    None if neither was given. Split out from build_context_block so
+    interactive mode can build it a single time and reuse it across many
+    prompts instead of re-indexing on every turn."""
     code_dir = args.context_dir
     context_file = args.context_file
-
     if not code_dir and not context_file:
-        return ""
-
+        return None
     index_target = code_dir or str(Path(context_file).parent)
-    engine = SemanticaCodeEngine().build_graph_from_directory(index_target)
+    return SemanticaCodeEngine().build_graph_from_directory(index_target)
 
-    symbol = args.symbol or (guess_symbol(prompt_text, engine) if engine.node_count else None)
 
-    if symbol:
-        context = engine.get_focused_context(symbol, max_depth=args.depth, max_tokens=args.max_context_tokens)
-        if not context.startswith("<!--"):
-            return context
+def context_from_engine(engine, args, prompt_text: str) -> str:
+    if engine is not None:
+        symbol = args.symbol or (guess_symbol(prompt_text, engine) if engine.node_count else None)
+        if symbol:
+            context = engine.get_focused_context(symbol, max_depth=args.depth, max_tokens=args.max_context_tokens)
+            if not context.startswith("<!--"):
+                return context
 
     # Fallback: no resolvable symbol -- inject the raw context file, trimmed to budget.
-    if context_file:
-        text = Path(context_file).read_text(encoding="utf-8", errors="ignore")
+    if args.context_file:
+        text = Path(args.context_file).read_text(encoding="utf-8", errors="ignore")
         budget_chars = args.max_context_tokens * 4
         if len(text) > budget_chars:
             text = text[:budget_chars] + "\n# ... (truncated)"
-        return f"# [TARGET] file `{context_file}`\n```python\n{text}\n```"
+        return f"# [TARGET] file `{args.context_file}`\n```python\n{text}\n```"
 
     return ""
+
+
+def build_context_block(args, prompt_text: str) -> str:
+    engine = build_engine(args)
+    return context_from_engine(engine, args, prompt_text)
 
 
 def build_full_prompt(prompt_text: str, context_block: str) -> str:
@@ -213,6 +223,80 @@ def run_local_patch(prompt_text: str, args) -> None:
     render_stream(stream)
 
 
+def run_interactive_session(args) -> None:
+    """Keep one Llama instance (and, if configured, one DS-Code Graph) warm
+    across multiple prompts in a single process, instead of the cold
+    load-model-per-invocation path run_local_patch takes.
+
+    This matters because llama.cpp automatically reuses KV-cache state for
+    the longest shared prefix between consecutive calls on the same model
+    instance. Cold prompt prefill on modest CPU hardware is the dominant
+    cost of a single invocation (tens of seconds, measured); since
+    SYSTEM_MESSAGE -- and the CONTEXT block too, if you keep asking about
+    the same symbol -- stays identical turn to turn, every call after the
+    first reuses that cached prefix and only has to prefill the differing
+    tail, cutting time-to-first-token from tens of seconds to well under a
+    second. Exit with an empty line, "exit"/"quit", or Ctrl+D/Ctrl+C.
+    """
+    model_path = Path(args.model) if args.model else resolve_default_model_path()
+    grammar_path = Path(args.grammar) if args.grammar else (PROJECT_ROOT / DEFAULT_GRAMMAR_REL)
+
+    if not model_path.exists():
+        print(f"Model file not found at {model_path}. Please run 'bash download_model.sh' first.")
+        sys.exit(1)
+
+    try:
+        from llama_cpp import Llama, LlamaGrammar
+    except ImportError:
+        print("Interactive mode requires llama-cpp-python (pip install llama-cpp-python); "
+              "the llama-cli subprocess fallback has no persistent session to keep warm.")
+        sys.exit(1)
+
+    engine = build_engine(args)
+    if engine is not None:
+        print(f"Indexed {len(engine.indexed_files)} file(s), {engine.node_count} node(s).")
+
+    grammar = LlamaGrammar.from_file(str(grammar_path)) if grammar_path.exists() else None
+    print(f"Loading model ({model_path.name})...")
+    t0 = time.perf_counter()
+    llm = Llama(model_path=str(model_path), n_ctx=args.ctx_size, n_threads=args.threads, verbose=False)
+    print(f"Model loaded in {(time.perf_counter() - t0) * 1000:.0f}ms. Session ready.")
+    print("Type a task instruction, or 'exit'/'quit' to leave.\n")
+
+    while True:
+        try:
+            prompt_text = input(">>> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if not prompt_text or prompt_text.lower() in ("exit", "quit"):
+            break
+
+        context_block = context_from_engine(engine, args, prompt_text)
+        full_prompt = build_full_prompt(prompt_text, context_block)
+        if context_block:
+            print(f"[context: ~{len(context_block) // 4} tokens]")
+
+        t0 = time.perf_counter()
+        first_token_at = None
+
+        def _timed_deltas():
+            nonlocal first_token_at
+            for chunk in llm(full_prompt, grammar=grammar, temperature=args.temp,
+                              max_tokens=args.max_tokens, stream=True):
+                if first_token_at is None:
+                    first_token_at = time.perf_counter()
+                yield _extract_delta_text(chunk)
+
+        render_stream(_timed_deltas())
+        total_ms = (time.perf_counter() - t0) * 1000
+        ttft_ms = (first_token_at - t0) * 1000 if first_token_at else total_ms
+        # TTFT is what KV-cache prefix reuse speeds up; total also includes
+        # generation, which isn't cache-accelerated -- reporting both keeps
+        # the two effects from being conflated.
+        print(f"[TTFT: {ttft_ms:.0f}ms, total: {total_ms:.0f}ms]\n")
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="AFRI-LLM-CODEX local code-patching inference.")
     parser.add_argument("prompt_positional", nargs="?", default=None, help=argparse.SUPPRESS)
@@ -230,10 +314,17 @@ def parse_args():
     parser.add_argument("--max-tokens", type=int, default=256, help="Max tokens to generate.")
     parser.add_argument("--temp", type=float, default=0.2)
     parser.add_argument("--dry-run", action="store_true", help="Print the constructed prompt without calling the model.")
+    parser.add_argument("--interactive", action="store_true",
+                         help="Start a persistent session: load the model once and keep it warm across "
+                              "multiple prompts, so llama.cpp's KV-cache prefix reuse cuts time-to-first-token "
+                              "dramatically after the first call. Requires llama-cpp-python.")
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    prompt = args.prompt or args.prompt_positional or DEFAULT_PROMPT
-    run_local_patch(prompt, args)
+    if args.interactive:
+        run_interactive_session(args)
+    else:
+        prompt = args.prompt or args.prompt_positional or DEFAULT_PROMPT
+        run_local_patch(prompt, args)
