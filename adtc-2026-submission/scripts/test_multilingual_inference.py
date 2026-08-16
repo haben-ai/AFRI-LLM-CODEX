@@ -155,13 +155,12 @@ def run_llama_cli(model_path: Path, prompt: str, args) -> dict:
     try:
         proc = subprocess.Popen(
             cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, bufsize=1, encoding="utf-8", errors="replace",
+            text=True, encoding="utf-8", errors="replace",
         )
     except FileNotFoundError:
         return {"error": f"'{args.llama_cli}' not found. Build/install llama.cpp and ensure llama-cli "
                           f"is on PATH, or pass --llama-cli /path/to/llama-cli."}
 
-    state = {"stdout": "", "first_token_time": None, "marker_seen": False}
     peak_rss_mb = [0.0]
     stop_rss = threading.Event()
 
@@ -185,47 +184,47 @@ def run_llama_cli(model_path: Path, prompt: str, args) -> dict:
                 break
             time.sleep(0.05)
 
-    def _read_stdout():
-        # Character-mode read (portable across platforms) so the marker
-        # timestamp isn't delayed by line buffering.
-        while True:
-            ch = proc.stdout.read(1)
-            if ch == "":
-                break
-            state["stdout"] += ch
-            if not state["marker_seen"] and ASSISTANT_MARKER in state["stdout"]:
-                state["marker_seen"] = True
-                state["first_token_time"] = time.perf_counter()
-
     rss_thread = threading.Thread(target=_sample_rss, daemon=True)
-    reader_thread = threading.Thread(target=_read_stdout, daemon=True)
     t0 = time.perf_counter()
     rss_thread.start()
-    reader_thread.start()
 
     try:
-        stderr = proc.stderr.read()
-        proc.wait(timeout=args.timeout)
+        stdout, stderr = proc.communicate(timeout=args.timeout)
     except subprocess.TimeoutExpired:
         proc.kill()
-        proc.wait()
+        proc.communicate()
         stop_rss.set()
         return {"error": f"llama-cli timed out after {args.timeout}s (process killed)."}
 
     t_end = time.perf_counter()
-    reader_thread.join(timeout=2)
     stop_rss.set()
     rss_thread.join(timeout=1)
 
     return {
         "returncode": proc.returncode,
-        "stdout": state["stdout"],
+        "stdout": stdout,
         "stderr": stderr,
         "wall_time_s": t_end - t0,
-        "first_token_at_s": (state["first_token_time"] - t0) if state["first_token_time"] else None,
-        "marker_observed_in_output": state["marker_seen"],
         "peak_rss_mb": round(peak_rss_mb[0], 1),
     }
+
+
+def count_prompt_tokens(model_path: Path, prompt: str) -> Optional[int]:
+    """Exact prompt token count via a vocab-only (tokenizer-only, no weights
+    loaded) llama_cpp instance -- used to turn llama-cli's reported prefill
+    rate (tokens/sec) into an actual TTFT figure, since this llama-cli
+    build's interactive-mode prompt echo truncates unpredictably (inserts a
+    literal "... (truncated)" mid-token) and can't be used as a reliable
+    real-time stream marker for when generation actually starts."""
+    try:
+        from llama_cpp import Llama
+    except ImportError:
+        return None
+    try:
+        llm = Llama(model_path=str(model_path), vocab_only=True, verbose=False)
+        return len(llm.tokenize(prompt.encode("utf-8")))
+    except Exception:
+        return None
 
 
 def parse_perf_stats(stdout: str, stderr: str) -> dict:
@@ -253,20 +252,31 @@ def parse_perf_stats(stdout: str, stderr: str) -> dict:
     return metrics if len(metrics) > 1 else {}
 
 
-def extract_completion(raw_stdout: str, prompt: str) -> str:
-    """Strip everything up to and including the echoed prompt (this build
-    echoes it despite --no-display-prompt) and the trailing stats/banner,
-    leaving just the model's actual reply."""
-    text = raw_stdout
-    idx = text.rfind(ASSISTANT_MARKER)
-    if idx != -1:
-        text = text[idx + len(ASSISTANT_MARKER):]
-    elif prompt in text:
-        text = text.split(prompt, 1)[1]
+PRIMARY_SECTION_MARKER = "### PYTHON CODE"
 
-    stats_idx = _STATS_RE.search(text)
-    if stats_idx:
-        text = text[:stats_idx.start()]
+
+def extract_completion(raw_stdout: str, prompt: str) -> str:
+    """Isolate the model's actual reply from the banner/echo/stats noise.
+
+    Anchoring on the LAST occurrence of "### PYTHON CODE" rather than the
+    literal <|im_start|>assistant marker: this llama-cli build's interactive
+    prompt echo truncates unpredictably mid-token (observed inserting a
+    literal "... (truncated)" in the middle of "<|im_start|>assistant"),
+    which makes the marker unreliable. The instruction text in our system
+    prompt contains one placeholder "### PYTHON CODE" example; the model's
+    real reply contains its own -- taking the LAST occurrence reliably
+    isolates the real reply regardless of how the echo gets mangled.
+    """
+    text = raw_stdout
+    idx = text.rfind(PRIMARY_SECTION_MARKER)
+    if idx == -1:
+        idx = text.rfind(ASSISTANT_MARKER)
+        idx = idx + len(ASSISTANT_MARKER) if idx != -1 else (len(prompt) if prompt in text else 0)
+    text = text[idx:]
+
+    stats_match = _STATS_RE.search(text)
+    if stats_match:
+        text = text[:stats_match.start()]
 
     return text.strip()
 
@@ -353,14 +363,24 @@ def run_case(case: TestCase, model_path: Path, args) -> dict:
     completion = extract_completion(run_info["stdout"], prompt)
     validation = validate_output(completion, case)
 
-    ttft_s = run_info["first_token_at_s"]
+    # TTFT = exact prompt token count / llama-cli's own measured prefill
+    # rate. Not a raw stream timestamp (see count_prompt_tokens docstring
+    # for why real-time marker detection isn't reliable on this build).
+    ttft_ms = None
+    prompt_tokens = None
+    if perf.get("prompt_tok_s"):
+        prompt_tokens = perf.get("prompt_tokens") or count_prompt_tokens(model_path, prompt)
+        if prompt_tokens:
+            ttft_ms = round((prompt_tokens / perf["prompt_tok_s"]) * 1000, 1)
+
     entry.update({
         "success": run_info["returncode"] == 0,
         "returncode": run_info["returncode"],
         "wall_time_s": round(run_info["wall_time_s"], 2),
-        "ttft_ms": round(ttft_s * 1000, 1) if ttft_s is not None else None,
-        "ttft_method": "measured (stream timestamp at end of echoed prompt)" if ttft_s is not None
-                        else "unavailable (prompt-echo marker not observed in output)",
+        "ttft_ms": ttft_ms,
+        "ttft_method": "computed: exact prompt token count / measured prefill tok/s"
+                        if ttft_ms is not None else "unavailable (couldn't determine prompt token count)",
+        "prompt_tokens": prompt_tokens,
         "tokens_per_second": perf.get("gen_tok_s"),
         "prompt_tokens_per_second": perf.get("prompt_tok_s"),
         "perf_raw": perf,

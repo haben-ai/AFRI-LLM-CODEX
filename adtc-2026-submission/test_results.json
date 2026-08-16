@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-16T13:50:56",
+  "generated_at": "2026-08-16T13:58:41",
   "results": [
     {
       "case_id": "case_a_palindrome_swahili",
@@ -19,15 +19,16 @@
       },
       "success": true,
       "returncode": 0,
-      "wall_time_s": 56.18,
-      "ttft_ms": null,
-      "ttft_method": "unavailable (prompt-echo marker not observed in output)",
-      "tokens_per_second": 9.3,
-      "prompt_tokens_per_second": 30.1,
+      "wall_time_s": 28.55,
+      "ttft_ms": 3711.9,
+      "ttft_method": "computed: exact prompt token count / measured prefill tok/s",
+      "prompt_tokens": 134,
+      "tokens_per_second": 13.8,
+      "prompt_tokens_per_second": 36.1,
       "perf_raw": {
         "format": "modern",
-        "prompt_tok_s": 30.1,
-        "gen_tok_s": 9.3
+        "prompt_tok_s": 36.1,
+        "gen_tok_s": 13.8
       },
       "peak_rss_mb": 1654.9,
       "rss_within_budget": true,
@@ -37,14 +38,12 @@
           "### ENGLISH EXPLANATION": true,
           "### SWAHILI EXPLANATION": true
         },
-        "python_blocks_found": 2,
-        "python_syntax_valid": false,
-        "python_syntax_errors": [
-          "block 0: invalid syntax (<unknown>, line 1)"
-        ],
-        "overall_pass": false
+        "python_blocks_found": 1,
+        "python_syntax_valid": true,
+        "python_syntax_errors": null,
+        "overall_pass": true
       },
-      "completion": "Loading model... \n\n▄▄ ▄▄\n██ ██\n██ ██  ▀▀█▄ ███▄███▄  ▀▀█▄    ▄████ ████▄ ████▄\n██ ██ ▄█▀██ ██ ██ ██ ▄█▀██    ██    ██ ██ ██ ██\n██ ██ ▀█▄██ ██ ██ ██ ▀█▄██ ██ ▀████ ████▀ ████▀\n                                    ██    ██\n                                    ▀▀    ▀▀\n\nbuild      : b10375-ba360efe1\nmodel      : C:\\Users\\demen\\OneDrive\\Desktop\\PROJECTS\\AFRI-LLM-CODEX\\adtc-2026-submission\\model\\qwen2.5-coder-1.5b-instruct-q4_k_m.gguf\nftype      : Q4_K - Medium\nmodalities : text\n\navailable commands:\n  /exit or Ctrl+C     stop or exit\n  /regen              regenerate the last response\n  /clear              clear the chat history\n  /read <file>        add a text file\n  /glob <pattern>     add text files using globbing pattern\n\n\n\n> <|im_start|>system\nYou are a coding tutor. When asked to write and explain code, respond using EXACTLY this structure, with each header on its own line and nothing before the first header:\n\n### PYTHON CODE\n```python\n<the code>\n```\n\n### ENGLISH EXPLANATION\n<explanation in English>\n\n### SWAHILI EXPLANATION\n<the same explanation translated into Swahili>\n<|im_end|>\n<|im_start|>user\nWrite a Python function `is_palindrome(s)` that checks whether a string is a palindrome.<|im_end|>\n<|im_start|>assistan ... (truncated)\n### PYTHON CODE\n```python\ndef is_palindrome(s):\n    # Normalize the string by removing spaces and converting to lowercase\n    normalized_s = s.replace(\" \", \"\").lower()\n    \n    # Check if the string is equal to its reverse\n    return normalized_s == normalized_s[::-1]\n```\n\n### ENGLISH EXPLANATION\nThe function `is_palindrome` takes a string `s` as input and returns `True` if the string is a palindrome, and `False` otherwise. A palindrome is a word, phrase, number, or other sequence of characters that reads the same backward as forward, ignoring spaces and case sensitivity.\n\nThe function first normalizes the string by removing all spaces and converting all characters to lowercase. This ensures that the palindrome check is case-insensitive and ignores spaces, making it more robust for different inputs.\n\nNext, the function checks if the normalized string is equal to its reverse. The reverse of a string can be obtained using slicing with `[::-1]`. If the string is equal to its reverse, the function returns `True`, indicating that the input string is a palindrome. Otherwise, it returns `False`.\n\n### SWAHILI EXPLANATION\nThe function `is_palindrome` takes a string `s` as input and returns `True` if the string is a palindrome, and `False` otherwise. A palindrome is a word, phrase, number, or other sequence of characters that reads the same backward as forward, ignoring spaces and case sensitivity.\n\nThe function first normalizes the string by removing all spaces and converting all characters to lowercase. This ensures that the palindrome check is case-insensitive and ignores spaces, making it more robust for different inputs.\n\nNext, the function checks if the normalized string is equal to its reverse. The reverse of a string can be obtained using slicing with `[::-1]`. If the string is equal to its reverse, the function returns `True`, indicating that the input string is a palindrome. Otherwise,"
+      "completion": "### PYTHON CODE\n```python\ndef is_palindrome(s):\n    # Normalize the string by removing spaces and converting to lowercase\n    normalized_string = s.replace(\" \", \"\").lower()\n    \n    # Check if the string is equal to its reverse\n    return normalized_string == normalized_string[::-1]\n```\n\n### ENGLISH EXPLANATION\nThe `is_palindrome` function takes a string `s` as input and returns `True` if the string is a palindrome, and `False` otherwise. It first normalizes the string by removing all spaces and converting it to lowercase to ensure the comparison is case-insensitive and ignores spaces. Then, it checks if the normalized string is equal to its reverse. If they are equal, the function returns `True`; otherwise, it returns `False`.\n\n### SWAHILI EXPLANATION\nThe `is_palindrome` function in Swahili is translated as follows:\n- It takes a string `s` as input.\n- It removes all spaces from the string and converts it to lowercase to ensure the comparison is case-insensitive and ignores spaces.\n- It checks if the normalized string is equal to its reverse.\n- If they are equal, the function returns `True`; otherwise, it returns `False`."
     },
     {
       "case_id": "case_b_binary_search_amharic",
@@ -64,17 +63,18 @@
       },
       "success": true,
       "returncode": 0,
-      "wall_time_s": 112.92,
-      "ttft_ms": null,
-      "ttft_method": "unavailable (prompt-echo marker not observed in output)",
-      "tokens_per_second": 3.8,
-      "prompt_tokens_per_second": 41.8,
+      "wall_time_s": 32.89,
+      "ttft_ms": 2869.4,
+      "ttft_method": "computed: exact prompt token count / measured prefill tok/s",
+      "prompt_tokens": 134,
+      "tokens_per_second": 15.9,
+      "prompt_tokens_per_second": 46.7,
       "perf_raw": {
         "format": "modern",
-        "prompt_tok_s": 41.8,
-        "gen_tok_s": 3.8
+        "prompt_tok_s": 46.7,
+        "gen_tok_s": 15.9
       },
-      "peak_rss_mb": 1654.6,
+      "peak_rss_mb": 1655.1,
       "rss_within_budget": true,
       "validation": {
         "sections_present": {
@@ -82,16 +82,14 @@
           "### ENGLISH EXPLANATION": true,
           "### AMHARIC EXPLANATION": true
         },
-        "python_blocks_found": 2,
-        "python_syntax_valid": false,
-        "python_syntax_errors": [
-          "block 0: invalid syntax (<unknown>, line 1)"
-        ],
+        "python_blocks_found": 1,
+        "python_syntax_valid": true,
+        "python_syntax_errors": null,
         "ethiopic_char_count": 0,
         "ethiopic_script_detected": false,
         "overall_pass": false
       },
-      "completion": "Loading model... \n\n▄▄ ▄▄\n██ ██\n██ ██  ▀▀█▄ ███▄███▄  ▀▀█▄    ▄████ ████▄ ████▄\n██ ██ ▄█▀██ ██ ██ ██ ▄█▀██    ██    ██ ██ ██ ██\n██ ██ ▀█▄██ ██ ██ ██ ▀█▄██ ██ ▀████ ████▀ ████▀\n                                    ██    ██\n                                    ▀▀    ▀▀\n\nbuild      : b10375-ba360efe1\nmodel      : C:\\Users\\demen\\OneDrive\\Desktop\\PROJECTS\\AFRI-LLM-CODEX\\adtc-2026-submission\\model\\qwen2.5-coder-1.5b-instruct-q4_k_m.gguf\nftype      : Q4_K - Medium\nmodalities : text\n\navailable commands:\n  /exit or Ctrl+C     stop or exit\n  /regen              regenerate the last response\n  /clear              clear the chat history\n  /read <file>        add a text file\n  /glob <pattern>     add text files using globbing pattern\n\n\n\n> <|im_start|>system\nYou are a coding tutor. When asked to write and explain code, respond using EXACTLY this structure, with each header on its own line and nothing before the first header:\n\n### PYTHON CODE\n```python\n<the code>\n```\n\n### ENGLISH EXPLANATION\n<explanation in English>\n\n### AMHARIC EXPLANATION\n<the same explanation translated into Amharic>\n<|im_end|>\n<|im_start|>user\nWrite a Python function `binary_search(arr, target)` that implements the binary search algorithm.<|im_end|>\n<|im_start| ... (truncated)\n### PYTHON CODE\n```python\ndef binary_search(arr, target):\n    low = 0\n    high = len(arr) - 1\n\n    while low <= high:\n        mid = (low + high) // 2\n\n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            low = mid + 1\n        else:\n            high = mid - 1\n\n    return -1\n```\n\n### ENGLISH EXPLANATION\nThe `binary_search` function takes an array `arr` and a target value `target` as input. It performs a binary search on the array to find the index of the target value. The function initializes two pointers, `low` and `high`, to the start and end of the array, respectively. It then enters a loop that continues until the `low` pointer is greater than the `high` pointer. In each iteration, it calculates the middle index `mid` using the formula `(low + high) // 2`. It then compares the value at the `mid` index with the target value. If they are equal, the function returns the `mid` index. If the value at the `mid` index is less than the target value, the `low` pointer is updated to `mid + 1`. If the value at the `mid` index is greater than the target value, the `high` pointer is updated to `mid - 1`. If the loop completes without finding the target value, the function returns -1.\n\n### AMHARIC EXPLANATION\nThe `binary_search` function in Amharic takes an array `arr` and a target value `target` as input. It performs a binary search on the array to find the index of the target value. The function initializes two pointers, `low` and `high`, to the start and end of the array, respectively. It then enters a loop that continues until"
+      "completion": "### PYTHON CODE\n```python\ndef binary_search(arr, target):\n    low, high = 0, len(arr) - 1\n\n    while low <= high:\n        mid = (low + high) // 2\n\n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            low = mid + 1\n        else:\n            high = mid - 1\n\n    return -1\n```\n\n### ENGLISH EXPLANATION\nThe `binary_search` function takes a sorted list `arr` and a `target` as input. It performs a binary search to find the index of the target in the list. The function initializes two pointers, `low` and `high`, to the start and end of the list, respectively. It then enters a loop that continues until `low` is greater than `high`. In each iteration, it calculates the middle index `mid` and compares the value at `mid` with the target. If they are equal, the function returns the index `mid`. If the value at `mid` is less than the target, it updates `low` to `mid + 1`. If the value at `mid` is greater than the target, it updates `high` to `mid - 1`. If the loop completes without finding the target, the function returns -1.\n\n### AMHARIC EXPLANATION\n```amharic\nError: The model produced output that does not match the expected peg-native format"
     }
   ]
 }
