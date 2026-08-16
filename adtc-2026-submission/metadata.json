@@ -27,11 +27,11 @@
   "test_prompts": [
     {
       "prompt_id": "tp_001",
-      "prompt": "Fix the memory leak in the following C function by freeing allocated memory before return."
+      "prompt": "Write a Python function that finds the maximum value in a list, and explain it as a coding tutorial in Amharic."
     },
     {
       "prompt_id": "tp_002",
-      "prompt": "Generate a Python SQLite function with parameterized inputs to prevent SQL injection."
+      "prompt": "Write a Python function that checks if a number is prime, and explain it as a coding tutorial in Swahili."
     }
   ]
 }
