@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-16T13:58:41",
+  "generated_at": "2026-08-16T14:05:57",
   "results": [
     {
       "case_id": "case_a_palindrome_swahili",
@@ -14,23 +14,23 @@
         "ubatch_size": 512,
         "cache_type_k": "q8_0",
         "cache_type_v": "q8_0",
-        "max_tokens": 400,
+        "max_tokens": 250,
         "temp": 0.3
       },
       "success": true,
       "returncode": 0,
-      "wall_time_s": 28.55,
-      "ttft_ms": 3711.9,
+      "wall_time_s": 39.42,
+      "ttft_ms": 3573.3,
       "ttft_method": "computed: exact prompt token count / measured prefill tok/s",
       "prompt_tokens": 134,
-      "tokens_per_second": 13.8,
-      "prompt_tokens_per_second": 36.1,
+      "tokens_per_second": 7.9,
+      "prompt_tokens_per_second": 37.5,
       "perf_raw": {
         "format": "modern",
-        "prompt_tok_s": 36.1,
-        "gen_tok_s": 13.8
+        "prompt_tok_s": 37.5,
+        "gen_tok_s": 7.9
       },
-      "peak_rss_mb": 1654.9,
+      "peak_rss_mb": 1291.6,
       "rss_within_budget": true,
       "validation": {
         "sections_present": {
@@ -43,7 +43,7 @@
         "python_syntax_errors": null,
         "overall_pass": true
       },
-      "completion": "### PYTHON CODE\n```python\ndef is_palindrome(s):\n    # Normalize the string by removing spaces and converting to lowercase\n    normalized_string = s.replace(\" \", \"\").lower()\n    \n    # Check if the string is equal to its reverse\n    return normalized_string == normalized_string[::-1]\n```\n\n### ENGLISH EXPLANATION\nThe `is_palindrome` function takes a string `s` as input and returns `True` if the string is a palindrome, and `False` otherwise. It first normalizes the string by removing all spaces and converting it to lowercase to ensure the comparison is case-insensitive and ignores spaces. Then, it checks if the normalized string is equal to its reverse. If they are equal, the function returns `True`; otherwise, it returns `False`.\n\n### SWAHILI EXPLANATION\nThe `is_palindrome` function in Swahili is translated as follows:\n- It takes a string `s` as input.\n- It removes all spaces from the string and converts it to lowercase to ensure the comparison is case-insensitive and ignores spaces.\n- It checks if the normalized string is equal to its reverse.\n- If they are equal, the function returns `True`; otherwise, it returns `False`."
+      "completion": "### PYTHON CODE\n```python\ndef is_palindrome(s):\n    # Normalize the string by removing spaces and converting to lowercase\n    normalized_s = s.replace(\" \", \"\").lower()\n    \n    # Check if the string is equal to its reverse\n    return normalized_s == normalized_s[::-1]\n```\n\n### ENGLISH EXPLANATION\nThe function `is_palindrome` takes a string `s` as input and returns `True` if the string is a palindrome, and `False` otherwise. A palindrome is a word, phrase, number, or other sequence of characters that reads the same backward as forward, ignoring spaces, punctuation, and capitalization.\n\n### SWAHILI EXPLANATION\nThe function `is_palindrome` in Swahili is `is_palindrome(s)`. It first normalizes the string by removing spaces and converting it to lowercase. Then, it checks if the normalized string is equal to its reverse. If they are equal, the function returns `True`; otherwise, it returns `False`."
     },
     {
       "case_id": "case_b_binary_search_amharic",
@@ -58,29 +58,29 @@
         "ubatch_size": 512,
         "cache_type_k": "q8_0",
         "cache_type_v": "q8_0",
-        "max_tokens": 400,
+        "max_tokens": 250,
         "temp": 0.3
       },
       "success": true,
       "returncode": 0,
-      "wall_time_s": 32.89,
-      "ttft_ms": 2869.4,
+      "wall_time_s": 40.13,
+      "ttft_ms": 3554.4,
       "ttft_method": "computed: exact prompt token count / measured prefill tok/s",
       "prompt_tokens": 134,
-      "tokens_per_second": 15.9,
-      "prompt_tokens_per_second": 46.7,
+      "tokens_per_second": 8.4,
+      "prompt_tokens_per_second": 37.7,
       "perf_raw": {
         "format": "modern",
-        "prompt_tok_s": 46.7,
-        "gen_tok_s": 15.9
+        "prompt_tok_s": 37.7,
+        "gen_tok_s": 8.4
       },
-      "peak_rss_mb": 1655.1,
+      "peak_rss_mb": 1554.5,
       "rss_within_budget": true,
       "validation": {
         "sections_present": {
           "### PYTHON CODE": true,
           "### ENGLISH EXPLANATION": true,
-          "### AMHARIC EXPLANATION": true
+          "### AMHARIC EXPLANATION": false
         },
         "python_blocks_found": 1,
         "python_syntax_valid": true,
@@ -89,7 +89,7 @@
         "ethiopic_script_detected": false,
         "overall_pass": false
       },
-      "completion": "### PYTHON CODE\n```python\ndef binary_search(arr, target):\n    low, high = 0, len(arr) - 1\n\n    while low <= high:\n        mid = (low + high) // 2\n\n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            low = mid + 1\n        else:\n            high = mid - 1\n\n    return -1\n```\n\n### ENGLISH EXPLANATION\nThe `binary_search` function takes a sorted list `arr` and a `target` as input. It performs a binary search to find the index of the target in the list. The function initializes two pointers, `low` and `high`, to the start and end of the list, respectively. It then enters a loop that continues until `low` is greater than `high`. In each iteration, it calculates the middle index `mid` and compares the value at `mid` with the target. If they are equal, the function returns the index `mid`. If the value at `mid` is less than the target, it updates `low` to `mid + 1`. If the value at `mid` is greater than the target, it updates `high` to `mid - 1`. If the loop completes without finding the target, the function returns -1.\n\n### AMHARIC EXPLANATION\n```amharic\nError: The model produced output that does not match the expected peg-native format"
+      "completion": "### PYTHON CODE\n```python\ndef binary_search(arr, target):\n    left, right = 0, len(arr) - 1\n\n    while left <= right:\n        mid = (left + right) // 2\n\n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            left = mid + 1\n        else:\n            right = mid - 1\n\n    return -1\n```\n\n### ENGLISH EXPLANATION\nThe `binary_search` function takes an array `arr` and a target value `target` as input. It performs a binary search on the array to find the index of the target. The function initializes two pointers, `left` and `right`, to the start and end of the array, respectively. It then enters a loop that continues until the `left` pointer exceeds the `right` pointer. In each iteration, it calculates the middle index `mid` and compares the value at `mid` with the target. If the value at `mid` is equal to the target, it returns the index `mid`. If the value at `mid` is less than the target, it updates the `left` pointer to `mid +"
     }
   ]
 }
