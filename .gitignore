@@ -1,0 +1,9 @@
+# Model weights -- large binaries, must not be committed. Use download_model.sh instead.
+*.gguf
+model.gguf
+model/
+
+__pycache__/
+*.pyc
+.env
+build/
