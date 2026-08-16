@@ -1,0 +1,48 @@
+# pedagogy.gbnf
+#
+# Enforces a strict three-section structure for the Dual-Language
+# Pedagogical Engine:
+#   1. A fenced Python code block
+#   2. An English explanation
+#   3. A regional-language explanation, labelled with whatever language
+#      name the model is asked to use (Swahili, Amharic, Tigrinya, ...)
+#
+# What this grammar guarantees: STRUCTURE -- headers, code fence, section
+# order, and blank-line spacing are always well-formed, because those are
+# hard-coded literals the sampler cannot deviate from.
+#
+# What this grammar CANNOT guarantee: that the "regional language" section
+# is actually written in that language. GBNF constrains the character-level
+# shape of the output, not its semantic content -- a model that ignores the
+# instruction can satisfy this grammar perfectly while writing English (or
+# anything else) inside section 3. That is a model-capability question, not
+# something any grammar can enforce. (Verified empirically in this project:
+# Qwen2.5-Coder-1.5B-Instruct does exactly this for Amharic -- see
+# adtc-2026-submission/scripts/test_multilingual_inference.py's results.)
+#
+# `language-name` is intentionally generic (matches any capitalized word or
+# words) rather than hard-coded to one language, so this single static file
+# works for any --lang value passed to the engine; getting the model to
+# actually write the REQUESTED language into that slot is the system
+# prompt's job (src/prompts.py), not this grammar's.
+
+root ::= code-section "\n\n" english-section "\n\n" regional-section
+
+code-section    ::= "### 1. CODE SOLUTION\n```python\n" code-block "```"
+english-section ::= "### 2. ENGLISH EXPLANATION\n" prose-block
+regional-section ::= "### 3. REGIONAL LANGUAGE EXPLANATION (" language-name ")\n" prose-block
+
+# Any text that never contains a closing triple-backtick fence.
+code-block ::= code-char*
+code-char  ::= [^\x60] | "\x60" [^\x60] | "\x60\x60" [^\x60]
+
+# Free-form prose. Unbounded on purpose -- GBNF has no negative-lookahead,
+# so there is no clean way to force early termination before the next
+# section's header without risking rejecting legitimate prose that merely
+# contains a "#" character. In practice the model reliably transitions to
+# the next required literal once it has said enough, because it is
+# instruction-tuned to follow the section template in the system prompt.
+prose-block ::= prose-char+
+prose-char  ::= [^\x00]
+
+language-name ::= [A-Za-z]+ (" " [A-Za-z]+)*

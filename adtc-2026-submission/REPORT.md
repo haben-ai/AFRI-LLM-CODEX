@@ -107,3 +107,86 @@ quantization. `adtc-profiler`'s `accuracy` field was left empty
 (`--skip-accuracy`) for all runs so far; a full accuracy pass on both quants
 would be needed to confirm Q4_K_M doesn't trade meaningful correctness for
 this speed gain.
+
+## 6. Dual-Language Coding Tutor Mode (`--pedagogical`)
+
+`scripts/run_inference.py --pedagogical --translate-lang <language>` adds a
+second mode alongside the default JSON-patch code-fixing mode: given a
+coding question, it returns a working Python solution, an English
+explanation, and the same explanation in a regional African language
+(Swahili, Amharic, or Tigrinya) -- targeting the "explain code to someone
+learning to program in their own language" use case rather than "patch this
+file."
+
+**Why the regional-language explanation comes from a dedicated translation
+model, not the LLM itself.** Directly measured in this project, across
+three independent test setups, Qwen2.5-Coder-1.5B-Instruct does not
+reliably produce genuine Swahili/Amharic/Tigrinya text when simply asked to
+in the prompt -- even with a GBNF grammar strictly enforcing the section
+structure:
+- Ungrammared, asked in the system prompt: falls back to plain English text
+  under the regional-language header.
+- Grammar-enforced (`grammars/pedagogy.gbnf` forces *a* response in that
+  slot, but can't force it to be semantically correct): degenerates into
+  tight repetitive nonsense loops -- for Tigrinya specifically, it looped
+  fragments of *Somali* vocabulary, not Tigrinya at all, and produced no
+  Ge'ez/Ethiopic script whatsoever.
+
+This is a real, general limitation worth naming plainly: GBNF grammars
+constrain token-level structure, not semantic content. No grammar can force
+a model to know a language it hasn't learned well.
+
+**The fix: delegate translation to Meta's NLLB-200 (distilled 600M),
+pre-quantized to CTranslate2 INT8** (`src/translator.py`,
+`model/nllb_ct2/`) -- a model actually trained for translation across 200
+languages, including all three targeted here. The code-generation LLM
+still produces its own section 3 attempt (the grammar requires it), but
+`run_inference.py` discards it and substitutes NLLB's output instead. This
+worked cleanly in every test: correct, coherent Amharic and Tigrinya (real
+Ge'ez script, correctly leaving identifiers like function names and
+`True`/`False`/`None` untranslated) and correct Swahili, none of which the
+LLM produced on its own.
+
+**A concrete measured example** (`--pedagogical --translate-lang Amharic`,
+query: "Write a function that finds the maximum value in a list"):
+
+```
+## Amharic Explanation
+
+find_max_value ተግባር የቁጥሮችን ዝርዝር እንደ ግብዓት ይወስዳል እና በዝርዝሩ ውስጥ የሚገኘውን ከፍተኛ ዋጋ
+ይመልሳል ። ዝርዝሩ ባዶ ከሆነ None ይመልሳል ። ...
+```
+
+**RAM cost, measured, and a fix applied.** The first working version of
+this pipeline (built and tested standalone before integration, in a
+separate `adtc_assistant/` prototype) measured **1897 MB peak RSS**
+end-to-end -- under the 2 GB hard ceiling but above this project's 1.5 GB
+target, because that version used llama.cpp's default fp16 KV cache.
+Integrating into `run_inference.py` here, the primary LLM call in
+`--pedagogical` mode now uses **q8_0-quantized KV cache with flash
+attention** (`type_k`/`type_v = GGML_TYPE_Q8_0`, `flash_attn=True` --
+flash attention is required by llama.cpp for a non-fp16 V-cache), applied
+*only* in `--pedagogical` mode so the already-benchmarked default mode's
+behavior is untouched. Re-measured end-to-end after the fix: **1110 MB peak
+RSS** -- a genuine ~42% reduction, now comfortably under both the 1.5 GB
+target and the 2 GB ceiling. The LLM and the NLLB translator are never
+loaded simultaneously (the `Llama` object is released before
+`OfflineTranslator` loads), so peak RSS reflects whichever is larger, not
+their sum -- confirmed by process-tree RSS sampling across a full run, not
+assumed.
+
+**Important scope note for anyone auditing this submission:**
+`adtc-profiler` cannot measure this mode. Its `throughput`/`accuracy`
+pipelines are hard-wired to `llama-bench`/`llama_cpp.Llama` against exactly
+one GGUF path from `metadata.json` -- there is no hook for a second model,
+regardless of file layout. The RAM figures above come from direct
+process-tree measurement (`psutil`, same methodology as Section 4's manual
+figures), not from `submission.json`, which reflects only the default
+JSON-patch mode.
+
+New dependencies (`--pedagogical` mode only -- the default mode needs
+neither): `ctranslate2` (CPU inference engine for NLLB, no PyTorch/
+TensorFlow at runtime) and `transformers` (used only for its tokenizer via
+`AutoTokenizer`, not for loading any transformers model). Both declared in
+`requirements.txt`; `download_model.sh` fetches the ~650 MB NLLB model
+alongside the primary GGUF.

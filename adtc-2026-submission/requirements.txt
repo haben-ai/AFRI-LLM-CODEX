@@ -1,2 +1,9 @@
 llama-cpp-python>=0.3.0
 rich>=13.0.0
+
+# Pedagogical / translation mode (--pedagogical) only -- not needed for the
+# default JSON-patch code-fixing mode. ctranslate2 is the CPU inference
+# engine for the local NLLB-200 translator; transformers is used only for
+# its tokenizer (AutoTokenizer), not for loading any transformers model.
+ctranslate2>=4.0.0
+transformers>=4.40.0
