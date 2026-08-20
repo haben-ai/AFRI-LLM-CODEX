@@ -19,8 +19,8 @@
   "model": {
     "name": "Qwen2.5-Coder-1.5B-Instruct",
     "runtime": "llama.cpp",
-    "quantization": "Q4_K_M",
-    "parameters_estimate": "1.5B",
+    "quantization": "Q5_K_M",
+    "parameters_estimate": "1.8B",
     "packaging": "binary_bundle"
   },
   "_runtime": {

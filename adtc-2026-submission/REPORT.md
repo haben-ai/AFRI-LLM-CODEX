@@ -5,7 +5,7 @@ Developers in low-bandwidth or offline environments across Africa require fast, 
 
 ## 2. Technical Architecture & Design Decisions
 - **Base Model:** `Qwen2.5-Coder-1.5B-Instruct`
-- **Quantization:** `GGUF Q4_K_M` (~1.07 GB file size, fits well under the 8 GB RAM threshold; see Section 5 for why this replaced the original Q5_K_M choice).
+- **Quantization:** `GGUF Q5_K_M` (~1.2 GB file size, fits well under the 8 GB RAM threshold; see Section 5 for the Q5->Q4->Q5 history and why Q5_K_M is the current choice).
 - **Execution Engine:** Native `llama.cpp` using strict thread affinity (`-t 4`) and context capping (`-c 2048`).
 - **Zero-Chatter Enforcement:** Custom GBNF grammar (`json_patch.gbnf`) forces direct JSON diff patch outputs, reducing generated output tokens by ~80% and mitigating CPU latency.
 
@@ -102,11 +102,42 @@ Q5_K_M build measured 3.93-5.49 tok/s generation across separate test
 sessions with nothing else changed), so treat the exact percentages as
 directional rather than precise -- but Q4_K_M won in every ordering tested.
 
-Not yet measured: the accuracy cost of dropping from 5-bit to 4-bit
-quantization. `adtc-profiler`'s `accuracy` field was left empty
-(`--skip-accuracy`) for all runs so far; a full accuracy pass on both quants
-would be needed to confirm Q4_K_M doesn't trade meaningful correctness for
-this speed gain.
+**Update: reverted Q4_K_M -> Q5_K_M.** A later `adtc-profiler` run (first
+one including `arc_easy` accuracy rather than `--skip-accuracy`) scored
+0.66 (`acc_norm`, 50 samples) on Q4_K_M. Accuracy is 50% of the
+competition's scoring weight (`S_total = 0.50*S_acc + 0.30*S_perf +
+0.20*S_eff - P_thermal`) versus 30% for throughput -- the Q4_K_M -> Q5_K_M
+speed gain documented above (20.3 vs 17.8 tok/s prefill, 6.00 vs 3.93
+tok/s generation) is a smaller share of the total score than a comparable
+swing in accuracy would be. **This revert to Q5_K_M is a precautionary
+choice, not one backed by a measured accuracy comparison** -- the Q4_K_M
+vs Q5_K_M `arc_easy` A/B test that would confirm whether 4-bit actually
+cost real accuracy here was never run (`lm-eval-harness` wasn't
+installed in the environment available at the time). Given the higher
+stakes of the accuracy axis, defaulting back to the more precise
+quantization absent that data point was judged the safer default. Anyone
+picking this back up should run that A/B test before deciding whether
+Q4_K_M is worth revisiting for the speed.
+
+## 6. Parameter Count Correction
+
+`adtc-profiler`'s fraud check compares `model.parameters_estimate` against
+the GGUF file's actual summed tensor element count, with a hard ±15%
+tolerance (`gguf.py`: `claimed*0.85 <= actual <= claimed*1.15`). The
+original "1.5B" claim (inherited from Qwen's own model name) failed this
+check against every quantization tested: the file's actual parameter
+count is 1,777,088,000 (~1.78B), about 18.5% over "1.5B" -- outside the
+15% tolerance regardless of quantization level, since parameter *count* is
+a property of the model architecture, not the quantization (Q4_K_M and
+Q5_K_M of the same model have identical element counts, only different
+bit-widths per weight).
+
+Corrected `parameters_estimate` to `"1.8B"`, chosen to give comfortable
+margin on both sides of the tolerance window (`[1.53B, 2.07B]`) rather
+than sitting near an edge. Verified directly against `adtc-profiler`'s own
+`gguf.fraud_check()` function, not just computed by hand:
+`fraud_check("1.8B", 1777088000)` -> `True`; the old
+`fraud_check("1.5B", 1777088000)` -> `False`.
 
 ## 6. Dual-Language Coding Tutor Mode (`--pedagogical`)
 

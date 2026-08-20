@@ -2,8 +2,8 @@
 set -e
 
 MODEL_DIR="model"
-MODEL_FILE="${MODEL_DIR}/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"
-MODEL_URL="https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"
+MODEL_FILE="${MODEL_DIR}/qwen2.5-coder-1.5b-instruct-q5_k_m.gguf"
+MODEL_URL="https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q5_k_m.gguf"
 
 # NLLB-200-distilled-600M, pre-quantized to CTranslate2 INT8. Only needed for
 # --pedagogical mode's regional-language translation; the default JSON-patch
@@ -43,7 +43,7 @@ download() {
 mkdir -p "${MODEL_DIR}"
 mkdir -p "${NLLB_DIR}"
 
-echo "== Primary LLM: Qwen2.5-Coder-1.5B-Instruct (Q4_K_M GGUF, ~1.1 GB) =="
+echo "== Primary LLM: Qwen2.5-Coder-1.5B-Instruct (Q5_K_M GGUF, ~1.2 GB) =="
 download "$MODEL_URL" "$MODEL_FILE"
 
 echo "== Translation layer (--pedagogical mode): NLLB-200-distilled-600M, CTranslate2 INT8 (~650 MB) =="
