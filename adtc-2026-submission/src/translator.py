@@ -94,7 +94,9 @@ class OfflineTranslator:
                 inter_threads=1,
                 intra_threads=self.threads,
             )
-            self._tokenizer = AutoTokenizer.from_pretrained(str(self.model_dir))
+            self._tokenizer = AutoTokenizer.from_pretrained(
+                str(self.model_dir), clean_up_tokenization_spaces=True,
+            )
         except Exception as exc:
             # Model directory exists but files are corrupt/incompatible --
             # fail soft here too, same as a missing directory.

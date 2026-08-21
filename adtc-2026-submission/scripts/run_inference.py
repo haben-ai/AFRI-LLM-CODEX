@@ -222,26 +222,41 @@ def render_stream(chunks, suppress_after: str | None = None) -> str:
     completion and the full text is still returned/accumulated -- only the
     terminal display is cut short). Used by --pedagogical mode to hide the
     LLM's own (discarded, redundant) section 3 attempt; see
-    run_pedagogical_mode()'s docstring."""
+    run_pedagogical_mode()'s docstring.
+
+    The marker can arrive split across multiple stream deltas (llama.cpp
+    streams sub-word token pieces, not whole lines) -- e.g. "###" and " 3"
+    as two separate deltas. Printing a delta the instant it arrives would
+    let a marker prefix like "### " leak to the terminal before the rest
+    of the marker shows up. To avoid that, unprinted text is held in a
+    small tail buffer (sized to the marker's length) and only flushed once
+    it's far enough back that it can no longer become part of the marker."""
     full_response = ""
+    hold = ""
     suppressed = False
+    tail_len = max(len(suppress_after) - 1, 0) if suppress_after else 0
     for delta in chunks:
         if not delta:
             continue
-        prev_len = len(full_response)
         full_response += delta
         if suppressed:
             continue
-        if suppress_after:
-            idx = full_response.find(suppress_after)
-            if idx != -1:
-                visible_end = max(idx - prev_len, 0)
-                if visible_end > 0:
-                    sys.stdout.write(delta[:visible_end])
-                    sys.stdout.flush()
-                suppressed = True
-                continue
-        sys.stdout.write(delta)
+        hold += delta
+        if suppress_after and suppress_after in hold:
+            idx = hold.find(suppress_after)
+            if idx > 0:
+                sys.stdout.write(hold[:idx])
+                sys.stdout.flush()
+            suppressed = True
+            hold = ""
+            continue
+        if len(hold) > tail_len:
+            flush_len = len(hold) - tail_len
+            sys.stdout.write(hold[:flush_len])
+            sys.stdout.flush()
+            hold = hold[flush_len:]
+    if not suppressed and hold:
+        sys.stdout.write(hold)
         sys.stdout.flush()
     sys.stdout.write("\n")
     return full_response
