@@ -201,41 +201,46 @@ def stream_llama_cli(model_path: Path, grammar_path: Path, full_prompt: str, arg
     return _gen()
 
 
-def render_stream(chunks) -> str:
-    """Consume a generator of text deltas, live-rendering them to the
-    terminal. Uses rich's Live + Markdown when attached to an interactive
-    terminal; falls back to plain incremental sys.stdout.write otherwise
-    (missing `rich`, init failure, or piped/non-tty output such as a
-    profiler capturing this script's stdout) so nothing crashes or corrupts
-    captured output during benchmark runs."""
+def render_stream(chunks, suppress_after: str | None = None) -> str:
+    """Consume a generator of text deltas, writing each one to stdout as it
+    arrives (a plain typewriter effect) and returning the full accumulated
+    text.
+
+    Deliberately NOT using rich's Live + Markdown here: Live redraws by
+    moving the cursor up and overwriting the previous render, which only
+    works when the whole renderable fits within the terminal's visible
+    height. Generated code routinely exceeds that (a full HTML page, a
+    longer function). With vertical_overflow="visible" the excess can't be
+    redrawn in place, so Live reprints the entire accumulated text on every
+    refresh tick instead -- observed directly as the same growing block
+    repeating over and over as the terminal scrolls each copy up. Plain
+    incremental writes never redraw anything, so this failure mode doesn't
+    exist, and still delivers the requested live/typing effect.
+
+    suppress_after: once this literal substring appears in the accumulated
+    text, stop echoing further deltas to stdout (generation still runs to
+    completion and the full text is still returned/accumulated -- only the
+    terminal display is cut short). Used by --pedagogical mode to hide the
+    LLM's own (discarded, redundant) section 3 attempt; see
+    run_pedagogical_mode()'s docstring."""
     full_response = ""
-
-    if sys.stdout.isatty():
-        try:
-            from rich.console import Console
-            from rich.live import Live
-            from rich.markdown import Markdown
-
-            console = Console()
-            with Live(
-                Markdown(""),
-                console=console,
-                refresh_per_second=12,
-                vertical_overflow="visible",
-            ) as live:
-                for delta in chunks:
-                    if not delta:
-                        continue
-                    full_response += delta
-                    live.update(Markdown(full_response))
-            return full_response
-        except Exception:
-            pass  # rich unavailable or failed to init -- fall back to plain streaming below
-
+    suppressed = False
     for delta in chunks:
         if not delta:
             continue
+        prev_len = len(full_response)
         full_response += delta
+        if suppressed:
+            continue
+        if suppress_after:
+            idx = full_response.find(suppress_after)
+            if idx != -1:
+                visible_end = max(idx - prev_len, 0)
+                if visible_end > 0:
+                    sys.stdout.write(delta[:visible_end])
+                    sys.stdout.flush()
+                suppressed = True
+                continue
         sys.stdout.write(delta)
         sys.stdout.flush()
     sys.stdout.write("\n")
@@ -445,7 +450,7 @@ def run_pedagogical_mode(query: str, args) -> None:
               "fallback isn't wired up for this mode). Install with 'pip install llama-cpp-python'.")
         sys.exit(1)
 
-    raw = render_stream(stream)
+    raw = render_stream(stream, suppress_after="### 3")
     reply = extract_pedagogical_reply(raw)
     code, english = parse_pedagogical_output(reply)
     if code is None:
@@ -454,7 +459,6 @@ def run_pedagogical_mode(query: str, args) -> None:
         print(reply)
         sys.exit(1)
 
-    print(f"Translating explanation into {args.translate_lang} via local NLLB-200...")
     try:
         from translator import OfflineTranslator
     except ImportError:
@@ -466,11 +470,17 @@ def run_pedagogical_mode(query: str, args) -> None:
         translator = OfflineTranslator(model_dir=str(nllb_dir), threads=args.threads)
         regional_text = translator.translate(english, args.translate_lang)
 
+    # Code and the English explanation were already shown above as they
+    # streamed live -- reprinting them here would just duplicate output the
+    # user already watched appear. Only the translation is genuinely new.
+    print()
     print("=" * 70)
-    print(f"## Code\n\n```python\n{code}\n```\n")
-    print(f"## English Explanation\n\n{english}\n")
+    print(f"## {args.translate_lang}\n")
     if regional_text is not None:
-        print(f"## {args.translate_lang} Explanation\n\n{regional_text}")
+        print(regional_text)
+    else:
+        print("(translation unavailable -- see the message above; "
+              "the English explanation streamed above still applies)")
     print("=" * 70)
 
 

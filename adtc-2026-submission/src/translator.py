@@ -146,6 +146,8 @@ class OfflineTranslator:
 
             output_tokens = results[0].hypotheses[0][1:]  # drop the target-language prefix token
             translated_ids = self._tokenizer.convert_tokens_to_ids(output_tokens)
-            return self._tokenizer.decode(translated_ids, skip_special_tokens=True).strip()
+            return self._tokenizer.decode(
+                translated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True,
+            ).strip()
         except Exception as exc:
             return f"{UNAVAILABLE_NOTICE} (translation failed: {exc})\n{text}"

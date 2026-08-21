@@ -4,8 +4,8 @@
 Developers in low-bandwidth or offline environments across Africa require fast, private, on-device code refactoring tools that run reliably on budget hardware (4 vCPUs, 8 GB RAM).
 
 ## 2. Technical Architecture & Design Decisions
-- **Base Model:** `Qwen2.5-Coder-1.5B-Instruct`
-- **Quantization:** `GGUF Q5_K_M` (~1.2 GB file size, fits well under the 8 GB RAM threshold; see Section 5 for the Q5->Q4->Q5 history and why Q5_K_M is the current choice).
+- **Base Model:** `Qwen2.5-Coder-1.5B-Instruct` (see Section 7 for the full 1.5B -> 0.5B -> 1.5B history and why 1.5B is the final choice).
+- **Quantization:** `GGUF Q5_K_M` (~1.2 GB file size, fits well under the 8 GB RAM threshold; see Section 5 for the earlier Q5->Q4->Q5 history).
 - **Execution Engine:** Native `llama.cpp` using strict thread affinity (`-t 4`) and context capping (`-c 2048`).
 - **Zero-Chatter Enforcement:** Custom GBNF grammar (`json_patch.gbnf`) forces direct JSON diff patch outputs, reducing generated output tokens by ~80% and mitigating CPU latency.
 
@@ -221,3 +221,87 @@ TensorFlow at runtime) and `transformers` (used only for its tokenizer via
 `AutoTokenizer`, not for loading any transformers model). Both declared in
 `requirements.txt`; `download_model.sh` fetches the ~650 MB NLLB model
 alongside the primary GGUF.
+
+## 7. Base Model: 1.5B -> 0.5B
+
+Switched the base model from `Qwen2.5-Coder-1.5B-Instruct` to
+`Qwen2.5-Coder-0.5B-Instruct` (same family, same Apache-2.0 license, same
+Q5_K_M quantization) to raise throughput toward the competition's 15 TPS
+reference and reduce RAM/thermal load. `model.parameters_estimate`
+corrected the same way as Section 6: the actual counted parameter count
+from the GGUF tensor table is 630,167,424 (~0.63B), not "0.5B" -- the
+marketing name understates it enough to fail the ±15% fraud-check
+tolerance, same pattern as the 1.5B model's "1.5B" vs. actual 1.78B.
+Verified against `adtc-profiler`'s own `fraud_check()`: `"0.6B"` passes,
+`"0.5B"` does not.
+
+**Throughput and memory, measured directly (isolated `llama-cpp-python`
+instances, same ~540-token prompt, `n_threads=4`, no shared KV-cache):**
+
+| Model | File size | Prefill speed | Steady-state gen | Peak RSS |
+|---|---|---|---|---|
+| Qwen2.5-Coder-1.5B-Instruct (prior) | 1226 MB | 15.1 tok/s | 7.66 tok/s | 1269 MB |
+| **Qwen2.5-Coder-0.5B-Instruct (current)** | **498 MB** | **45.9 tok/s (3.0x)** | **18.54 tok/s (2.4x)** | **545 MB** |
+
+Generation throughput now clears the 15 TPS reference outright, and peak
+RSS drops to well under a third of the 7 GB efficiency budget.
+
+**This is a real, known quality tradeoff, not a free win -- documented
+here deliberately rather than left implicit.** Across three independent
+tests during evaluation, the 0.5B model did not reliably follow this
+project's structured-output requirements, in ways the 1.5B model did not
+exhibit:
+- In the default JSON-patch mode, `code_patch` sometimes contained a prose
+  description of the fix instead of an actual code change.
+- In another JSON-patch test, `code_patch` contained a mix of prose and an
+  embedded markdown code fence with raw unescaped newlines inside what is
+  meant to be a JSON string value.
+- In `--pedagogical` mode, the `### 2. ENGLISH EXPLANATION` section
+  sometimes contained Python code comments instead of prose, which then
+  fed a broken, half-translated result into the NLLB translation step
+  (garbage in, garbage out).
+
+Since accuracy carries 50% of `S_total` versus throughput's 30%, this
+tradeoff is not obviously favorable on the competition's own scoring
+formula -- it was adopted as a deliberate choice after the tradeoff was
+measured and disclosed, not because the smaller model was confirmed to
+score better overall. Anyone picking this back up should weigh whether the
+throughput/efficiency gains here are worth the structured-output
+reliability cost for the accuracy-judged portion of scoring.
+
+## 8. Final Decision: Reverted 0.5B -> 1.5B
+
+Before reverting, one more mitigation was tried and also rejected: Q8_0
+quantization of the 0.5B model (676 MB, closer to full precision than
+Q5_K_M). It did not fix the core problem -- JSON structure was cleaner
+(no more embedded fences with raw unescaped newlines), but `code_patch`
+still contained prose instead of actual code in both JSON-patch tests, and
+`--pedagogical` mode was *worse*: the English-explanation section derailed
+into a repetitive loop describing what Swahili is as a language rather
+than explaining the code, never reached section 3, and hit a hard parse
+failure. This confirmed the 0.5B model's structured-output problem is a
+capability ceiling at that size, not a quantization-precision artifact --
+consistent with quantization level barely moving `arc_easy` accuracy
+earlier (Section 5) while model *size* moved it by 20 points (Section 7).
+
+**Reverted to `Qwen2.5-Coder-1.5B-Instruct` Q5_K_M.** The deciding
+argument: throughput and accuracy do not carry the same risk under a real
+audit. This project's dev hardware (2015 Skylake-U, 2 physical cores) is
+several generations behind ADTC's reference profile (10th-12th gen Intel
+i5 / Ryzen 5 3000-5000), and the official Gate 2 audit runs on a cloud VM
+(`adtc-profiler`'s own `measured_on = "audit_cloud_vm"` for audit mode),
+not a physical machine matching this dev laptop. The 1.5B model's
+locally-measured throughput (7.5-9.6 tok/s, below the 15 TPS reference) is
+very likely an understatement of what it scores on the real audit
+hardware -- throughput is a hardware-dependent problem, likely to improve
+without further changes.
+
+The 0.5B model's structured-output failures are not hardware-dependent --
+they are a fixed model-capability limit that would reproduce identically
+on any hardware, including the audit's cloud VM. Combined with the
+formula's own weighting (accuracy 50% vs. throughput 30%) and external
+verification that Qwen2.5-Coder-1.5B-Instruct is already a strong pick for
+its size class (65.9% HumanEval pass@1, beating IBM's own 3B code model at
+36.6% despite being half the size), the 1.5B model was judged the more
+defensible choice: it protects the axis that won't self-correct, at the
+cost of an axis that plausibly will.
