@@ -445,7 +445,7 @@ def run_pedagogical_mode(query: str, args) -> None:
               "fallback isn't wired up for this mode). Install with 'pip install llama-cpp-python'.")
         sys.exit(1)
 
-    raw = "".join(stream)
+    raw = render_stream(stream)
     reply = extract_pedagogical_reply(raw)
     code, english = parse_pedagogical_output(reply)
     if code is None:
